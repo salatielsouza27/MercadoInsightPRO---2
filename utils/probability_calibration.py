@@ -2,32 +2,36 @@ import pandas as pd
 
 
 def calculate_score(row):
-    """
-    Calcula uma pontuação de 0 a 100
-    baseada em indicadores técnicos.
-    """
 
     score = 0
 
-    if row["EMA9"] > row["EMA21"]:
-        score += 20
+    try:
 
-    if row["EMA21"] > row["EMA200"]:
-        score += 20
+        if row["EMA9"] > row["EMA21"]:
+            score += 20
 
-    if row["RSI"] > 50:
-        score += 20
+        if row["EMA21"] > row["EMA200"]:
+            score += 20
 
-    if row["MACD"] > row["MACD_SIGNAL"]:
-        score += 20
+        if row["RSI"] > 50:
+            score += 20
 
-    if row["Close"] > row["BB_MID"]:
-        score += 20
+        if row["MACD"] > row["MACD_SIGNAL"]:
+            score += 20
+
+        if row["Close"] > row["BB_MID"]:
+            score += 20
+
+    except Exception:
+        pass
 
     return score
 
 
-def build_calibration_table(df, horizon=5):
+def build_calibration_table(
+    df,
+    horizon=3
+):
 
     df = df.copy()
 
@@ -62,7 +66,10 @@ def build_calibration_table(df, horizon=5):
     return stats
 
 
-def get_probability(score, stats):
+def get_probability(
+    score,
+    stats
+):
 
     bucket = (
         score // 10
