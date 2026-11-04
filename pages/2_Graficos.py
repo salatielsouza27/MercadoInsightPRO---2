@@ -1,13 +1,21 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
 import plotly.graph_objects as go
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from ta.trend import EMAIndicator
 from ta.volatility import BollingerBands
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from utils.yahoo_data import get_market_data
+from utils.indicators import add_indicators
+
+from utils.probability_calibration import (
+    calculate_score,
+    build_calibration_table,
+    get_probability
+)
 
 st.set_page_config(
     page_title="Gráficos",
@@ -16,6 +24,10 @@ st.set_page_config(
 
 st.title("📈 Gráfico Profissional")
 
+# ==========================
+# HORÁRIO BRASIL
+# ==========================
+
 agora = datetime.now(
     ZoneInfo("America/Sao_Paulo")
 )
@@ -23,6 +35,10 @@ agora = datetime.now(
 st.caption(
     f"Última atualização: {agora.strftime('%H:%M:%S')}"
 )
+
+# ==========================
+# SELEÇÃO DE ATIVO
+# ==========================
 
 ativo = st.selectbox(
     "Selecione o ativo",
@@ -36,29 +52,29 @@ ativo = st.selectbox(
     ]
 )
 
-df = yf.download(
-    ativo,
-    period="1d",
-    interval="5m",
-    auto_adjust=True,
-    progress=False,
-    threads=False
-)
+# ==========================
+# DADOS
+# ==========================
 
-# Corrige MultiIndex
-if isinstance(df.columns, pd.MultiIndex):
-    df.columns = df.columns.get_level_values(0)
+df = get_market_data(
+    ativo,
+    period="30d",
+    interval="5m"
+)
 
 if df.empty:
     st.error("Sem dados disponíveis.")
     st.stop()
 
-# Mantém apenas últimos candles
+# Mantém últimos candles para melhor visualização
+
 df = df.tail(150)
 
-close = df["Close"]
+# ==========================
+# INDICADORES
+# ==========================
 
-# ===== EMAs =====
+close = df["Close"]
 
 df["EMA9"] = EMAIndicator(
     close=close,
@@ -75,8 +91,6 @@ df["EMA200"] = EMAIndicator(
     window=200
 ).ema_indicator()
 
-# ===== BOLLINGER =====
-
 bb = BollingerBands(
     close=close,
     window=20,
@@ -87,11 +101,59 @@ df["BB_HIGH"] = bb.bollinger_hband()
 df["BB_MID"] = bb.bollinger_mavg()
 df["BB_LOW"] = bb.bollinger_lband()
 
-# ===== GRÁFICO =====
+# ==========================
+# PROBABILIDADE HISTÓRICA
+# ==========================
+
+try:
+
+    df_prob = df.copy()
+
+    df_prob["RSI"] = 50
+    df_prob["MACD"] = 0
+    df_prob["MACD_SIGNAL"] = 0
+
+    stats = build_calibration_table(
+        df_prob,
+        horizon=3
+    )
+
+    current_score = calculate_score(
+        df_prob.iloc[-1]
+    )
+
+    prob = get_probability(
+        current_score,
+        stats
+    )
+
+except Exception:
+
+    prob = 50.0
+
+if prob >= 60:
+
+    tendencia = "📈 ALTA"
+    cor = "#0f5132"
+
+elif prob <= 40:
+
+    tendencia = "📉 BAIXA"
+    cor = "#842029"
+
+else:
+
+    tendencia = "➡️ NEUTRO"
+    cor = "#664d03"
+
+# ==========================
+# GRÁFICO
+# ==========================
 
 fig = go.Figure()
 
-# Candlestick
+# Candles
+
 fig.add_trace(
     go.Candlestick(
         x=df.index,
@@ -110,6 +172,7 @@ fig.add_trace(
 )
 
 # EMA 9
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -123,6 +186,7 @@ fig.add_trace(
 )
 
 # EMA 21
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -136,6 +200,7 @@ fig.add_trace(
 )
 
 # EMA 200
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -143,12 +208,13 @@ fig.add_trace(
         name="EMA 200",
         line=dict(
             color="red",
-            width=3
+            width=2
         )
     )
 )
 
 # Bollinger Superior
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -162,6 +228,7 @@ fig.add_trace(
 )
 
 # Bollinger Média
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -175,6 +242,7 @@ fig.add_trace(
 )
 
 # Bollinger Inferior
+
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -187,20 +255,63 @@ fig.add_trace(
     )
 )
 
+# Layout
+
 fig.update_layout(
+    title=f"{ativo} - Timeframe 5 minutos",
     template="plotly_dark",
     height=850,
     hovermode="x unified",
-    xaxis_rangeslider_visible=False,
-    title=f"{ativo} - Timeframe 5 minutos"
+    xaxis_rangeslider_visible=False
 )
+
+# ==========================
+# CAIXA DE PROBABILIDADE
+# ==========================
+
+fig.add_annotation(
+    x=0.80,
+    y=0.95,
+
+    xref="paper",
+    yref="paper",
+
+    showarrow=False,
+
+    bgcolor=cor,
+
+    bordercolor="white",
+    borderwidth=1,
+
+    opacity=0.90,
+
+    align="left",
+
+    font=dict(
+        size=14,
+        color="white"
+    ),
+
+    text=f"""
+<b>{tendencia}</b><br>
+Alta: {prob:.1f}%<br>
+Baixa: {100-prob:.1f}%<br>
+Horizonte: 15 min
+"""
+)
+
+# ==========================
+# EXIBIÇÃO
+# ==========================
 
 st.plotly_chart(
     fig,
     use_container_width=True
 )
 
-# ===== MÉTRICAS =====
+# ==========================
+# MÉTRICAS
+# ==========================
 
 col1, col2, col3 = st.columns(3)
 
