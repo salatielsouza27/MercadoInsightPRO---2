@@ -5,9 +5,8 @@ import yfinance as yf
 def get_market_data(
     symbol,
     period="30d",
-    interval="1h"
+    interval="5m"
 ):
-
     try:
 
         df = yf.download(
@@ -22,11 +21,9 @@ def get_market_data(
         if df.empty:
             return pd.DataFrame()
 
-        # Corrige MultiIndex
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
-        # Conversão numérica
         for col in [
             "Open",
             "High",
@@ -48,8 +45,6 @@ def get_market_data(
 
     except Exception as e:
 
-        print(
-            f"Erro Yahoo Finance: {e}"
-        )
+        print(e)
 
         return pd.DataFrame()
