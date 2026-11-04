@@ -10,7 +10,8 @@ ativo = st.selectbox(
     [
         "BTC-USD",
         "ETH-USD",
-        "EURUSD=X"
+        "EURUSD=X",
+        "GBPUSD=X"
     ]
 )
 
@@ -25,10 +26,8 @@ df = yf.download(
 if isinstance(df.columns, pd.MultiIndex):
     df.columns = df.columns.get_level_values(0)
 
-st.write(df.tail())
-
 if df.empty:
-    st.error("Sem dados retornados")
+    st.error("Sem dados disponíveis.")
     st.stop()
 
 fig = go.Figure()
@@ -39,11 +38,13 @@ fig.add_trace(
         open=df["Open"],
         high=df["High"],
         low=df["Low"],
-        close=df["Close"]
+        close=df["Close"],
+        name="Candles"
     )
 )
 
 fig.update_layout(
+    title=f"{ativo}",
     template="plotly_dark",
     height=700,
     xaxis_rangeslider_visible=False
@@ -53,3 +54,7 @@ st.plotly_chart(
     fig,
     use_container_width=True
 )
+
+st.subheader("Últimos registros")
+
+st.dataframe(df.tail())
