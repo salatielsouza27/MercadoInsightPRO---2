@@ -1,22 +1,25 @@
 import streamlit as st
-import yfinance as yf
+from utils.yahoo_data import get_market_data
 
 st.title("📊 Dashboard")
 
-ativo = "BTC-USD"
-
-df = yf.download(
-    ativo,
-    period="5d",
-    interval="1h",
-    progress=False
+df = get_market_data(
+    "BTC-USD",
+    period="30d",
+    interval="1h"
 )
 
-ultimo = float(df["Close"].iloc[-1])
+if df.empty:
+    st.error("Sem dados disponíveis")
+    st.stop()
+
+close = df["Close"].squeeze()
+
+ultimo = float(close.iloc[-1])
 
 st.metric(
     "Preço Atual",
     f"${ultimo:,.2f}"
 )
 
-st.dataframe(df.tail(10))
+st.dataframe(df.tail())
