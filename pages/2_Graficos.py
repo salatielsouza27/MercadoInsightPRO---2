@@ -58,3 +58,37 @@ st.plotly_chart(
 st.subheader("Últimos registros")
 
 st.dataframe(df.tail())
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(
+    interval=60000,  # 60 segundos
+    key="refresh_grafico"
+)
+from ta.trend import EMAIndicator
+close = df["Close"]
+
+df["EMA9"] = EMAIndicator(
+    close=close,
+    window=9
+).ema_indicator()
+
+df["EMA21"] = EMAIndicator(
+    close=close,
+    window=21
+).ema_indicator()
+fig.add_trace(
+    go.Scatter(
+        x=df.index,
+        y=df["EMA9"],
+        name="EMA 9",
+        line=dict(color="yellow")
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=df.index,
+        y=df["EMA21"],
+        name="EMA 21",
+        line=dict(color="cyan")
+    )
+)
