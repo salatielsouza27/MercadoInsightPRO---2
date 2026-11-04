@@ -6,3 +6,4 @@ yfinance
 ta
 sqlalchemy
 openpyxl
+streamlit-autorefresh
